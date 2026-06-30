@@ -43,15 +43,22 @@ def build():
     return model, basis, est
 
 
-def main(MC=200, seed=0):
+def main(MC=5000, seed=0):
+    # Paper uses MC = 1e4; 5000 already gives stable S.cov (deterministic) and
+    # sharp means for the well-identified weights. Bump MC for an exact match.
     model, basis, est = build()
     Q, R = basis.to_QR(alpha_true)
-    print(f"identifiable weights = {est.n_identifiable()} of {basis.n_alpha}")
+    print(f"identifiable weights = rank(script_A) = {est.n_identifiable()} of {basis.n_alpha}")
     rng = np.random.default_rng(seed)
     e = np.array([est.fit_ordinary(model.simulate(Q, R, rng)) for _ in range(MC)])
-    print("\n  alpha          true            MDM mean")
+    # Table I reports S. mean and S. cov; values printed in units of 1e-19.
+    sc = 1e-19
+    print(f"\nOrdinary MDM, L={L}, tau={TAU}, MC={MC}   (paper Table I, units of 1e-19)")
+    print("  alpha     true      S. mean       S. cov")
     for i in range(basis.n_alpha):
-        print(f"  a{i+1:<5d}{alpha_true[i]:14.3e}{e[:, i].mean():16.3e}")
+        print(f"  a{i+1:<5d}{alpha_true[i]/sc:9.2f}{e[:, i].mean()/sc:13.3f}{(e[:, i]/sc).var():14.2f}")
+    print("\n  Note: a1,a3,a5 (diffusion) are sharp; a2,a4,a6 (white-noise floor)")
+    print("  and a7,a8 (R) are weakly identifiable -> large S. cov (paper Fig. 1).")
 
 
 if __name__ == "__main__":

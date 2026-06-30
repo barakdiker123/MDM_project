@@ -20,8 +20,8 @@ E = np.array([[-3, 2, 0], [2, 2, 2], [5, 0, 1]], float)
 H = np.array([[0, 1, 0], [0, 0, 2], [0, 1, 1]], float)
 D = np.array([[1, 1, 0], [0, 2, 1], [1, 0, -1]], float)
 
-G_fn = lambda k: np.array([[0.0], [np.cos(10 * (k + 1) / TAU)], [1.0]])
-u_fn = lambda k: np.sin((k + 1) / TAU)
+G_fn = lambda k: np.array([[0.0], [np.sin(10 * k / TAU)], [1.0]])   # eq. (37a)
+u_fn = lambda k: np.sin(k / TAU)                                     # Sec. VII preamble
 
 BQ = [np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], float),
       np.array([[0, 0, 0], [0, 1, 0], [0, 0, 1]], float),
@@ -43,7 +43,7 @@ def build():
     return model, basis, est
 
 
-def main(MC=200, seed=0):
+def main(MC=10000, seed=0):
     model, basis, est = build()
     Q, R = basis.to_QR(alpha_true)
     from mdm import observability_gamma
@@ -53,10 +53,12 @@ def main(MC=200, seed=0):
 
     rng = np.random.default_rng(seed)
     est_o = np.array([est.fit_ordinary(model.simulate(Q, R, rng)) for _ in range(MC)])
-    print("\n  alpha   true     MDM mean     MDM std")
+    # Table II reports S. mean and S. cov (the diagonal of the sample covariance).
+    print(f"\nOrdinary MDM, L={L}, tau={TAU}, MC={MC}   (paper Table II)")
+    print("  alpha    true     S. mean      S. cov")
     for i in range(basis.n_alpha):
-        print(f"  a{i+1:<5d}{alpha_true[i]:8.3f}{est_o[:, i].mean():12.3f}{est_o[:, i].std():12.3f}")
-    print(f"\n  ||bias|| = {np.linalg.norm(est_o.mean(0) - alpha_true):.4f}")
+        print(f"  a{i+1:<5d}{alpha_true[i]:8.2f}{est_o[:, i].mean():12.4f}{est_o[:, i].var():12.4f}")
+    print(f"\n  ||S.mean - true|| = {np.linalg.norm(est_o.mean(0) - alpha_true):.4f}")
 
 
 if __name__ == "__main__":

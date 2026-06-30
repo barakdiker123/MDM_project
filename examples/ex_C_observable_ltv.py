@@ -30,22 +30,30 @@ def build():
 alpha_true = np.array([2.0, 1.0])   # (Q, R)
 
 
-def main(MC=300, seed=0):
+def main(MC=1000, seed=0):
+    # Paper uses MC = 1e4; the weighted fit factorises a banded P each call, so
+    # 1000 is a practical default (S.cov stable to a few %). Bump MC to match.
     model, basis, est = build()
     Q, R = basis.to_QR(alpha_true)
     rng = np.random.default_rng(seed)
-    eo, ew = [], []
-    for _ in range(MC):
-        z = model.simulate(Q, R, rng)
-        cr = est.residue_cov(z)
-        eo.append(est.fit_ordinary(covRes=cr))
-        ew.append(est.fit_weighted(covRes=cr))
-    eo, ew = np.array(eo), np.array(ew)
-    print(f"{'':6s}{'true':>8s}{'OLS mean':>11s}{'OLS std':>10s}{'WLS mean':>11s}{'WLS std':>10s}")
-    for i, nm in enumerate(["Q", "R"]):
-        print(f"{nm:>6s}{alpha_true[i]:8.3f}{eo[:, i].mean():11.3f}{eo[:, i].std():10.3f}"
-              f"{ew[:, i].mean():11.3f}{ew[:, i].std():10.3f}")
-    print("\nWeighted MDM attains lower std (paper Table III / Fig. 3).")
+    eo = np.empty((MC, 2)); ew = np.empty((MC, 2)); est_cov = np.zeros(2)
+    for j in range(MC):
+        z = model.simulate(Q, R, rng); cr = est.residue_cov(z)
+        eo[j] = est.fit_ordinary(covRes=cr)
+        aw, cov = est.fit_weighted(covRes=cr, return_cov=True)
+        ew[j] = aw; est_cov += np.diag(cov)
+    est_cov /= MC
+
+    # Table III: S. mean, S. cov, and (weighted only) Est. cov from eq. 24.
+    print(f"Example C, L={L}, tau={TAU}, MC={MC}   (paper Table III)")
+    hdr = f"{'method':<10}{'S.mean Q':>9}{'R':>7}{'S.cov Q':>10}{'R':>9}{'Est.cov Q':>12}{'R':>9}"
+    print(hdr)
+    print(f"{'ordinary':<10}{eo[:,0].mean():9.3f}{eo[:,1].mean():7.3f}"
+          f"{eo[:,0].var():10.4f}{eo[:,1].var():9.4f}{'--':>12}{'--':>9}")
+    print(f"{'weighted':<10}{ew[:,0].mean():9.3f}{ew[:,1].mean():7.3f}"
+          f"{ew[:,0].var():10.4f}{ew[:,1].var():9.4f}{est_cov[0]:12.4f}{est_cov[1]:9.4f}")
+    print("\n  Weighted MDM: lower S. cov than ordinary, and S. cov ~ Est. cov")
+    print("  (eq. 24 gives a realistic uncertainty estimate) -- paper Fig. 3.")
 
 
 if __name__ == "__main__":
