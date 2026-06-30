@@ -1,0 +1,4 @@
+numpy>=1.23
+scipy>=1.9
+# optional, only for mdm.neural (training the learned estimator):
+# torch>=2.0
