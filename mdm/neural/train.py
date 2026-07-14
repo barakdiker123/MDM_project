@@ -24,7 +24,7 @@ def train(model, basis, est, lo, hi,
     from .dataset import make_feasible_sampler, generate_dataset
     from .losses import frobenius_loss_torch
 
-    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+    device = device or ("cuda" if torch.cuda.is_available() else "mps" if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available() else "cpu")
     sampler = make_feasible_sampler(basis, lo, hi)
 
     print(f"Generating {n_train} train / {n_val} val samples ...")

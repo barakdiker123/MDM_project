@@ -21,6 +21,7 @@ zero iff A = B. Used only for *evaluation*: it needs both matrices SPD, which an
 unconstrained network does not guarantee early in training, so predictions are
 PSD-projected first. (This is why Stein is unsuitable as the training loss.)
 """
+
 from __future__ import annotations
 import numpy as np
 
@@ -31,6 +32,7 @@ def frobenius_loss_torch(alpha_hat, alpha_true, BQ, BR):
     structure-defining matrices; ``alpha_*`` are (batch, n_alpha) tensors.
     """
     import torch
+
     Qh = torch.einsum("bi,ijk->bjk", alpha_hat, BQ)
     Rh = torch.einsum("bi,ijk->bjk", alpha_hat, BR)
     Qt = torch.einsum("bi,ijk->bjk", alpha_true, BQ)
@@ -41,7 +43,21 @@ def frobenius_loss_torch(alpha_hat, alpha_true, BQ, BR):
 def stein_loss(A, B):
     r"""Numpy Stein loss between SPD matrices A and B (PSD-projected if needed)."""
     from ..linalg import psd_project
-    A = psd_project(A); B = psd_project(B)
+
+    A = psd_project(A)
+    B = psd_project(B)
     M = A @ np.linalg.inv(B)
     sign, logdet = np.linalg.slogdet(M)
     return float(np.trace(M) - logdet - A.shape[0])
+
+
+def kl_loss(A, B):
+    r"""
+    KL divergence KL( N(0,A) || N(0,B) ) between zero-mean Gaussians.
+
+        KL = 0.5 * [ tr(B^{-1} A) - n + log(det(B)/det(A)) ]
+           = 0.5 * stein_loss(A, B)
+
+    Requires both A and B to be positive definite.
+    """
+    return 0.5 * stein_loss(A, B)

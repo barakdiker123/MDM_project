@@ -54,8 +54,10 @@ Kronecker power (paper) or as `vec` of an outer product (code).
 | ordinary `α_o = (script_Aᵀ script_A)⁻¹ script_Aᵀ R_{𝒵²}` (eq. 21) | `MDM.fit_ordinary` |
 | `R_{η²} = E[𝓔^{⊗4}] − R_{𝓔²}^{⊗2}` (eq. 18) | Gaussian closed form in `moments.unique_cov_block` |
 | weighting `P` (eq. 22) | `MDM._assemble_P` (sparse, banded by lag `s < L`) |
-| weighted `α_w = (script_Aᵀ P⁻¹ script_A)⁻¹ script_Aᵀ P⁻¹ R_{𝒵²}` (eq. 23) | `MDM.fit_weighted` |
-| `COV(α_w) ≈ (script_Aᵀ P⁻¹ script_A)⁻¹` (eq. 24) | `MDM.fit_weighted(return_cov=True)` |
+| weighted `α_w = (script_Aᵀ P⁻¹ script_A)⁻¹ script_Aᵀ P⁻¹ R_{𝒵²}` (eq. 23) | `MDM.fit_weighted` (fast sparse path, `method="sparse"`) |
+| `COV(α_w) ≈ (script_Aᵀ P⁻¹ script_A)⁻¹` (eq. 24) | `MDM.fit_weighted(return_cov=True)`, sparse path |
+| rank-deficient `P`: `α_w = (script_Aᵀ(P+script_A script_Aᵀ)⁺script_A)⁻¹ script_Aᵀ(P+script_A script_Aᵀ)⁺R_{𝒵²}` (eq. 25) | `MDM.fit_weighted(method="pinv")`, or automatic for small `N` under `method="auto"` |
+| `COV(α_w) ≈ (script_Aᵀ(P+script_A script_Aᵀ)⁺script_A)⁻¹ − I` (eq. 26) | `MDM.fit_weighted(method="pinv", return_cov=True)` |
 
 ## Implementation notes
 
@@ -71,3 +73,14 @@ Kronecker power (paper) or as `vec` of an outer product (code).
 * **Numerical scale.** Simulation uses a *relative* Cholesky jitter so the
   `10⁻¹⁹`-scale clock covariances (Example A) are reproduced faithfully; a fixed
   absolute jitter would swamp them.
+* **Rank-deficient `P` (eq. 25/26).** The closed-form weighting is built from
+  the `(I+K)` projector onto the symmetric subspace of `vec(Z Zᵀ)`, which is
+  exactly rank-deficient by construction; the assembled (stacked, banded) `P`
+  can be singular at machine precision even when every individual window's
+  block is fine. `fit_weighted(method="auto")` detects this (via the sparse
+  LU's pivot ratio -- a heuristic, not airtight) and falls back to the exact
+  eq. 25 pseudoinverse for tractable `N` (`pinv_max_dim`, default 1500; cost is
+  `O(N^3)`), or to a small relative-jitter approximation for larger `N` where
+  the exact dense route would be impractical. Pass `method="pinv"` to force the
+  exact computation regardless of size and detection; `method="sparse"` to
+  force the fast path and raise if `P` is detected singular.
